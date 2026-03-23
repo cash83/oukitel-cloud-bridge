@@ -31,15 +31,21 @@
 
 ---
 
-## 📱 Prerequisiti — Account ufficiale Oukitel
+## 📱 Prerequisiti — Account app Wonderfree o Landbook
 
-Per usare questo bridge è **obbligatorio** avere un account attivo sull'app ufficiale Oukitel
-e aver completato la registrazione del dispositivo tramite l'app ufficiale.
+I dispositivi Oukitel utilizzano l'infrastruttura cloud Acceleronix, la stessa usata
+dalle app **Wonderfree** e **Landbook**. Per usare questo bridge devi avere un account
+attivo su una di queste app e aver registrato il dispositivo tramite essa.
 
-> ✅ Il bridge usa le stesse credenziali dell'app ufficiale (email e password).
+| App utilizzata | Valore `app` da usare |
+|---|---|
+| **Wonderfree** | `wonderfree` |
+| **Landbook** | `landbook` |
+
+> ✅ Il bridge usa le stesse credenziali dell'app (email e password).
 > Non crea account separati e non aggira alcuna protezione di sicurezza.
 >
-> ❌ Non è possibile usare questo bridge senza un account Oukitel valido.
+> ❌ Non è possibile usare questo bridge senza un account valido su Wonderfree o Landbook.
 
 ---
 
@@ -47,10 +53,9 @@ e aver completato la registrazione del dispositivo tramite l'app ufficiale.
 
 | Campo | Descrizione |
 |---|---|
-| `wf_email` | Email del tuo account app Oukitel |
-| `wf_password` | Password del tuo account app Oukitel |
-| `device_key` | Chiave dispositivo (dalla app o dai log del cloud) |
-| `product_key` | Chiave prodotto (default: `p11qXo` per modelli noti) |
+| `wf_email` | Email del tuo account Wonderfree o Landbook |
+| `wf_password` | Password del tuo account Wonderfree o Landbook |
+| `device_key` | Chiave dispositivo (dai log del cloud all'avvio) |
 | `mqtt_host` | Host broker MQTT (default: `core-mosquitto`) |
 | `mqtt_port` | Porta broker MQTT (default: `1883`) |
 
