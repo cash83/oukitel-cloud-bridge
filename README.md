@@ -24,7 +24,7 @@
 > 🚧 **STATO: SPERIMENTALE**
 >
 > - ✅ **Sensori** — funzionanti (dati letti dal cloud via polling HTTP)
-> - ✅ **Switch AC/DC** — funzionanti
+> - ✅ **Switch AC/DC/LED** — funzionanti
 > - ✅ **AC Charging Limit** — slider 0–100% funzionante
 >
 > ### ✅ Dispositivi testati
@@ -34,6 +34,19 @@
 > | **OUKITEL P1000 Plus** (`P1000EPLUS`) | Wonderfree | Testato su hardware reale |
 >
 > Se hai un altro dispositivo Oukitel e funziona, apri una Issue o una Pull Request!
+
+---
+
+## 📸 Screenshot
+
+### Controlli (Slider + Switch)
+![Controlli](docs/c5ae0725-c0a3-4e91-a77a-b2f4607b7e12.jpg)
+
+### Sensori (parte 1)
+![Sensori 1](docs/2b2743bf-a4f7-4aad-9263-e6d1913f8c71.jpg)
+
+### Sensori (parte 2)
+![Sensori 2](docs/58e182da-d71c-4b44-a9bc-ea2cacf6e3ed.jpg)
 
 ---
 
