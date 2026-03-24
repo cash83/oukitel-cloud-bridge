@@ -15,7 +15,6 @@ from bridge_core import Bridge
 import wf_mqtt
 import wf_sensors
 import wf_switches
-
 # Attacca le funzioni/metodi al Bridge
 wf_mqtt.attach(Bridge)
 wf_sensors.attach(Bridge)

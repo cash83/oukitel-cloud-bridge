@@ -1,7 +1,5 @@
 # Auto-split from original bridge.py
-# Module: wf_sensors — Oukitel variant
-# Sensor mappings adapted for Oukitel power stations (Acceleronix / Wonderfree backend).
-# Keys differ from the Wonderfree device: flat top-level keys + nested ac_data/dc_data/usb_data/typec_data.
+# Module: wf_sensors
 from __future__ import annotations
 
 from wf_config import * # noqa: F403,F401
@@ -61,7 +59,7 @@ def attach(Bridge):
         threading.Thread(target=self._watchdog_loop, daemon=True).start()
 
         log.debug(
-            f"FINAL (Verbose + Beep) bridge started. "
+            f"FINAL (Verbose + Beep) bridge started. " 
             f"SEND_STRATEGY={SEND_STRATEGY.upper()} DEDUP_MS={DEDUP_MS} STALE_SEC={STALE_SEC}"
         )
     Bridge.start = start
@@ -339,6 +337,7 @@ def attach(Bridge):
                     # Enrichment da deviceData (stessa risposta HTTP)
                     try:
                         if dev_data:
+                            # Ignoriamo dev_data.get("battery") perché è buggato e fisso a 100
                             sig = _num(dev_data.get("signalStrength"))
                             if sig is not None:
                                 st["signal_strength"] = sig
@@ -352,6 +351,8 @@ def attach(Bridge):
                     age = int(time.time()) - int(st.get("updated_at", 0))
 
                     # Se i dati diventano vecchi, accelera il polling e manda un refresh BUS.
+                    # NON mandiamo la mask (0x0011) qui: è un frame pesante e non serve
+                    # in fase di stale; verrebbe inviata troppo spesso causando freeze del device.
                     if age > STALE_SEC:
                         self.adaptive_period = max(POLL_MIN, 2)
                         now2 = time.time()
@@ -384,15 +385,17 @@ def attach(Bridge):
                         self.adaptive_period = min(POLL_MAX, self.adaptive_period + 1)
 
                 else:
+                    # Nessun dato (HTTP 200 ma body "vuoto"/non parseabile): capita. Non è un errore "grave".
                     consecutive_errors += 1
                     tnow = time.time()
-                    if (tnow - float(self._rt_last_warn_no_data)) >= 300.0:
+                    if (tnow - float(self._rt_last_warn_no_data)) >= 300.0:  # max 1 warning ogni 5 min
                         log.warning("[REALTIME] nessun dato")
                         self._rt_last_warn_no_data = tnow
 
             except Exception as e:
                 consecutive_errors += 1
 
+                # alcuni server chiudono la connessione senza risposta: ricrea la Session per ripulire lo stato
                 if isinstance(e, requests.exceptions.RequestException) or "RemoteDisconnected" in repr(e):
                     try:
                         sess.close()
@@ -403,13 +406,14 @@ def attach(Bridge):
                         sess.headers[k] = v
 
                 tnow = time.time()
-                if (tnow - float(self._rt_last_warn_http)) >= 300.0:
+                if (tnow - float(self._rt_last_warn_http)) >= 300.0:  # max 1 warning ogni 5 min
                     log.warning(f"[REALTIME] Fetch error: {e!r}")
                     self._rt_last_warn_http = tnow
                 else:
                     log.debug(f"[REALTIME] Fetch error (throttled): {e!r}")
 
             finally:
+                # backoff leggero se continuiamo a fallire
                 if consecutive_errors >= max_errors:
                     time.sleep(min(5.0, float(period)))
                 else:
@@ -448,18 +452,16 @@ def attach(Bridge):
                     kv[n] = True
                 elif v in ("false", "0", "off", "no"):
                     kv[n] = False
+                # se arriva roba strana, lascio com'è
 
-        # Oukitel integer fields
-        for n in ["device_status", "signal_strength", "remain_time", "remain_charging_time",
-                  "total_input_power", "total_output_power", "ac_input", "dc_input",
-                  "ACvoltage_Switchover", "Frequency_Switchover", "ac_charging_limit", "Parallel"]:
+        for n in ["remain_time", "remain_charging_time", "total_input_power", "total_output_power",
+                  "ac_input", "dc_input", "ACvoltage_Switchover", "Frequency_Switchover",
+                  "ac_charging_limit", "BMS_Version", "AC_Version", "high_frequency_reporting",
+                  "led_status", "temp"]:
             _int(n)
-
-        # Oukitel boolean fields
-        for n in ["ac_switch", "dc_switch", "usb_switch", "Fan_Switch"]:
+        for n in ["ac_switch", "dc_switch"]:
             _bool(n)
 
-        # Nested dicts: normalise numeric values
         for key in ("ac_data", "dc_data", "usb_data", "typec_data"):
             if isinstance(kv.get(key), dict):
                 for k in list(kv[key].keys()):
@@ -485,6 +487,7 @@ def attach(Bridge):
                 else:
                     payload = str(v).encode()
 
+                # Se publish_only_changed=true, salta i valori identici all'ultima pubblicazione
                 if changed_only and self._last_published.get(t) == payload:
                     continue
                 self._last_published[t] = payload
@@ -495,15 +498,16 @@ def attach(Bridge):
             self.local.publish(f"{SENSOR_BASE_TOPIC}/bridge_uptime", str(uptime_min).encode(), qos=0, retain=True)
             self.local.publish(f"{SENSOR_BASE_TOPIC}/bridge_relogins", b"0", qos=0, retain=True)
             ts_val = int(st.get("updated_at") or 0)
+            # Non aggiornare last_publish_ts se onl_ ha dichiarato il device offline:
+            # evita che dati HTTP cached (ancora freschi per qualche secondo) riportino online.
             if ts_val > 0 and not getattr(self, '_device_force_offline', False):
                 self.last_publish_ts = ts_val
 
             if debug:
                 try:
                     snap = {k: st.get(k) for k in [
-                        "updated_at", "battery_percentage", "temp",
-                        "total_input_power", "total_output_power",
-                        "ac_input", "dc_input", "remain_time"
+                        "updated_at","battery_percentage","temp","total_input_power","total_output_power",
+                        "ac_input_power","device_status","remaining_time","mode_set","led_status","output_power_set"
                     ]}
                     self.local.publish(SENSOR_DEBUG_TOPIC, json.dumps(snap).encode(), qos=0, retain=True)
                 except Exception:
@@ -514,148 +518,118 @@ def attach(Bridge):
     Bridge._publish_state = _publish_state
 
     def _normalize_state(self, kv: Dict[str, Any], dev_update) -> Dict[str, Any]:
-        """Normalize Oukitel device data to HA-publishable state dict.
-
-        Oukitel key mapping (from Acceleronix/Wonderfree backend):
-          battery_percentage       → Battery Capacity (%)
-          remain_time              → Remaining Available Time (min) — raw
-          remain_time_h            → Remaining Available Time (h) — derived
-          remain_charging_time     → Remaining Charging Time (min)
-          temp                     → Device Temperature (°C)
-          total_input_power        → Total Input Power (W)
-          total_output_power       → Total Output Power (W)
-          ac_input                 → AC Charging Input (W)
-          dc_input                 → PV Solar Input (W)
-          ac_data.ac1_output       → AC1 Output Power (W)
-          ac_data.ac1_output_voltage → AC1 Output Voltage (V)
-          dc_data.car1_output      → 12V Output Power (W)
-          dc_data.watt_24v         → 24V Output Power (W)
-          usb_data.USB_A_output    → USB-A Output (W)
-          usb_data.USB_QC1_output  → USB-C1 Output (W)
-          usb_data.USB_QC2_output  → USB-C2 Output (W)
-          typec_data.Typec1_output → TypeC1 Output (W)
-          typec_data.Typec2_output → TypeC2 Output (W)
-          ac_switch                → AC Switch (bool)
-          dc_switch                → DC Switch (bool)
-          usb_switch               → USB Switch (bool)
-          Fan_Switch               → Cooling Fan (bool)
-          ACvoltage_Switchover     → Output Voltage Setting (V)
-          Frequency_Switchover     → Output Frequency Setting (Hz)
-          ac_charging_limit        → Max AC Charging (%)
-          Parallel                 → Parallel Units
-        """
         st: Dict[str, Any] = {}
 
         # ---- Battery ----
         st["battery_percentage"] = _num(kv.get("battery_percentage"))
 
-        # remaining_time in minutes (raw); derive hours
         raw_remain = _num(kv.get("remain_time"))
-        # 65535 (0xFFFF) = sentinel "not available"
         if raw_remain is not None and raw_remain < 65535:
-            st["remain_time"] = raw_remain
+            st["remain_time"]   = raw_remain
             st["remain_time_h"] = round(raw_remain / 60, 2)
         else:
-            st["remain_time"] = 0
+            st["remain_time"]   = 0
             st["remain_time_h"] = 0
 
-        # remaining charging time (minutes, raw)
         raw_chg = _num(kv.get("remain_charging_time"))
-        if raw_chg is not None and raw_chg < 65535:
-            st["remain_charging_time"] = raw_chg
-        else:
-            st["remain_charging_time"] = 0
+        st["remain_charging_time"] = raw_chg if (raw_chg is not None and raw_chg < 65535) else 0
 
         # ---- Temperature ----
         st["temp"] = _num(kv.get("temp"))
 
         # ---- Power inputs ----
-        st["ac_input"]  = _num(kv.get("ac_input"))   # AC Charging Input (W)
-        st["dc_input"]  = _num(kv.get("dc_input"))   # PV Solar Input (W)
+        st["ac_input"] = _num(kv.get("ac_input"))
+        st["dc_input"] = _num(kv.get("dc_input"))
 
-        # total_input_power: prefer explicit cloud value, fallback to sum
         tip = _num(kv.get("total_input_power"))
         if tip is not None:
             st["total_input_power"] = tip
         else:
-            _ac_in = st.get("ac_input") or 0
-            _dc_in = st.get("dc_input") or 0
-            st["total_input_power"] = round(_ac_in + _dc_in, 2)
+            st["total_input_power"] = round((st.get("ac_input") or 0) + (st.get("dc_input") or 0), 2)
 
-        # ---- AC output block ----
+        # ---- AC output ----
         ad = kv.get("ac_data") or {}
-        st["ac1_output"]         = _num(ad.get("ac1_output"))          # AC1 Output Power (W)
-        st["ac1_output_voltage"] = _num(ad.get("ac1_output_voltage"))  # AC1 Output Voltage (V)
+        st["ac1_output"] = _num(ad.get("ac1_output"))
+        _v = _num(ad.get("ac1_output_voltage"))
+        st["ac1_output_voltage"] = _v if _v is not None else 0
 
-        # ---- DC output block ----
+        # ---- DC (12V) output ----
         dd = kv.get("dc_data") or {}
-        st["car1_output"] = _num(dd.get("car1_output"))  # 12V Output Power (W)
-        st["watt_24v"]    = _num(dd.get("watt_24v"))     # 24V Output Power (W)
+        st["car1_output"] = _num(dd.get("car1_output"))
+        _v = _num(dd.get("car1_output_voltage"))
+        st["car1_output_voltage"] = _v if _v is not None else 0
+        _v = _num(dd.get("car1_output_current"))
+        st["car1_output_current"] = _v if _v is not None else 0
 
-        # ---- USB output block ----
+        # ---- USB output ----
         ud = kv.get("usb_data") or {}
-        st["usb_a_output"]   = _num(ud.get("USB_A_output"))   # USB-A Output (W)
-        st["usb_qc1_output"] = _num(ud.get("USB_QC1_output")) # USB-C1 Output (W)
-        st["usb_qc2_output"] = _num(ud.get("USB_QC2_output")) # USB-C2 Output (W)
+        st["usb_qc1_output"] = _num(ud.get("USB_QC1_output"))
+        st["usb_qc2_output"] = _num(ud.get("USB_QC2_output"))
 
-        # ---- TypeC output block ----
+        # ---- Type-C output ----
         td = kv.get("typec_data") or {}
-        st["typec1_output"] = _num(td.get("Typec1_output"))  # TypeC1 Output (W)
-        st["typec2_output"] = _num(td.get("Typec2_output"))  # TypeC2 Output (W)
+        st["typec1_output"] = _num(td.get("Typec1_output"))
+        st["typec2_output"] = _num(td.get("Typec2_output"))
 
-        # ---- Total output power ----
+        # ---- Total output ----
         top = _num(kv.get("total_output_power"))
         if top is not None:
             st["total_output_power"] = top
         else:
-            _ac1_out   = st.get("ac1_output") or 0
-            _car1      = st.get("car1_output") or 0
-            _w24v      = st.get("watt_24v") or 0
-            _usb_a     = st.get("usb_a_output") or 0
-            _usb_qc1   = st.get("usb_qc1_output") or 0
-            _usb_qc2   = st.get("usb_qc2_output") or 0
-            _typec1    = st.get("typec1_output") or 0
-            _typec2    = st.get("typec2_output") or 0
             st["total_output_power"] = round(
-                _ac1_out + _car1 + _w24v + _usb_a + _usb_qc1 + _usb_qc2 + _typec1 + _typec2, 2
+                (st.get("ac1_output") or 0) + (st.get("car1_output") or 0) +
+                (st.get("usb_qc1_output") or 0) + (st.get("usb_qc2_output") or 0) +
+                (st.get("typec1_output") or 0) + (st.get("typec2_output") or 0), 2
             )
 
         # ---- Switches ----
-        st["ac_switch"]   = kv.get("ac_switch")    # AC Switch (bool)
-        st["dc_switch"]   = kv.get("dc_switch")    # DC Switch (bool)
-        st["usb_switch"]  = kv.get("usb_switch")   # USB Switch (bool)
-        st["fan_switch"]  = kv.get("Fan_Switch")   # Cooling Fan (bool)
+        st["ac_switch"] = kv.get("ac_switch")
+        st["dc_switch"]  = kv.get("dc_switch")
 
         # ---- Settings ----
-        st["ac_voltage_switchover"]  = _num(kv.get("ACvoltage_Switchover"))  # Output Voltage Setting (V)
-        st["frequency_switchover"]   = _num(kv.get("Frequency_Switchover"))  # Output Frequency Setting (Hz)
-        st["ac_charging_limit"]      = _num(kv.get("ac_charging_limit"))     # Max AC Charging (%)
-        st["parallel"]               = _num(kv.get("Parallel"))              # Parallel Units
+        st["ac_voltage_switchover"]  = _num(kv.get("ACvoltage_Switchover"))
+        st["frequency_switchover"]   = _num(kv.get("Frequency_Switchover"))
+        st["ac_charging_limit"]      = _num(kv.get("ac_charging_limit"))
+        st["ac_charging_limit_w"] = round(
+            (st.get("ac_charging_limit") or 0) / 100.0 * CHGLIMIT_MAX_WATTS  # noqa: F405
+        )
 
-        # ---- Signal strength (enriched later from deviceData) ----
+        # ---- LED (0=OFF, 1=High, 2=Flash, 3=SOS) ----
+        st["led_status"] = _num(kv.get("led_status"))
+
+        # ---- Firmware versions (es. 206 → "2.0.6") ----
+        def _fmt_ver(n):
+            if n is None:
+                return None
+            try:
+                n = int(n)
+                return f"{n // 100}.{(n % 100) // 10}.{n % 10}"
+            except Exception:
+                return str(n)
+
+        st["bms_version"] = _fmt_ver(_num(kv.get("BMS_Version")))
+        st["ac_version"]  = _fmt_ver(_num(kv.get("AC_Version")))
+
+        # ---- High-frequency reporting (0=Standard, 1=LAN, 2=WiFi, 3=LAN+WiFi) ----
+        st["high_frequency_reporting"] = _num(kv.get("high_frequency_reporting"))
+
+        # ---- Signal strength (enriched from deviceData) ----
         st["signal_strength"] = _num(kv.get("signal_strength"))
 
-        # ---- Debug power components ----
+        # ---- Debug ----
         st["_debug_power_components"] = {
-            "input": {
-                "ac": st.get("ac_input"),
-                "dc_pv": st.get("dc_input"),
-            },
+            "input":  {"ac": st.get("ac_input"), "dc": st.get("dc_input")},
             "output": {
-                "ac1": st.get("ac1_output"),
-                "car1_12v": st.get("car1_output"),
-                "watt_24v": st.get("watt_24v"),
-                "usb_a": st.get("usb_a_output"),
-                "usb_qc1": st.get("usb_qc1_output"),
-                "usb_qc2": st.get("usb_qc2_output"),
-                "typec1": st.get("typec1_output"),
-                "typec2": st.get("typec2_output"),
+                "ac1": st.get("ac1_output"), "car1": st.get("car1_output"),
+                "usb_qc1": st.get("usb_qc1_output"), "usb_qc2": st.get("usb_qc2_output"),
+                "typec1": st.get("typec1_output"), "typec2": st.get("typec2_output"),
             }
         }
 
         st["updated_at"] = int(dev_update) if dev_update else 0
-        st["_ts"] = int(time.time())  # cambia sempre → forza HA ad aggiornare il timestamp "X secondi fa"
+        st["_ts"] = int(time.time())
         return st
+
 
     Bridge._normalize_state = _normalize_state
 
@@ -688,32 +662,40 @@ def attach(Bridge):
             pend = self.pending.get(key)
             cloud_b = _as_bool(cloud_val)
 
+            # 1) pubblica SEMPRE lo stato reale del cloud se lo conosci
             if cloud_b is not None and self.local:
                 self.local.publish(state_topic, b"ON" if cloud_b else b"OFF", qos=0, retain=True)
 
+            # 2) se il cloud conferma, chiudi il pending
             if pend and cloud_b is not None:
                 desired_b = _as_bool(pend.get("desired"))
                 if desired_b is not None and cloud_b == desired_b:
                     self.pending.pop(key, None)
 
+            # 3) pulizia pending scaduto
             if pend and now >= pend["until"]:
                 self.pending.pop(key, None)
 
         maybe_pub_bool("ac_switch",  AC_STATE_TOPIC,  st.get("ac_switch"))   # noqa: F405
         maybe_pub_bool("dc_switch",  DC_STATE_TOPIC,  st.get("dc_switch"))   # noqa: F405
-        maybe_pub_bool("usb_switch", USB_STATE_TOPIC, st.get("usb_switch"))  # noqa: F405
-        maybe_pub_bool("fan_switch", FAN_STATE_TOPIC, st.get("fan_switch"))  # noqa: F405
 
-    Bridge._reconcile_switch_states = _reconcile_switch_states
+        led_val = st.get("led_status")
+        led_on = None if led_val is None else (int(led_val) != 0 if led_val is not None else None)
+        maybe_pub_bool("led_status", LED_STATE_TOPIC, led_on)  # noqa: F405
 
     # ---- Connectors ----
+    Bridge._reconcile_switch_states = _reconcile_switch_states
 
     def _watchdog_loop(self):
         while not self.stop.is_set():
             try:
                 now = int(time.time())
-                last_ts    = self.last_publish_ts
+                last_ts    = self.last_publish_ts  # da HTTP (updateTime REALE del device)
                 bridge_age = now - int(self.start_t)
+                # USA SOLO last_publish_ts: aggiornato solo via HTTP con il vero updateTime.
+                # _last_ack_ts escluso: il cloud manda ack_ anche col device SPENTO
+                # (dati cached) → includerlo impedisce il corretto rilevamento offline.
+                # HTTP gira ogni max 30s → con STALE_SEC=300s non ci sono falsi offline.
                 force_off = getattr(self, '_device_force_offline', False)
                 is_stale = force_off or (
                     (last_ts > 0 and now - last_ts > STALE_SEC) or
@@ -738,6 +720,7 @@ def attach(Bridge):
         except KeyboardInterrupt:
             log.debug("Shutting down bridge...")
             self.stop.set()
+            # Pubblica offline esplicitamente prima di chiudere
             if self.local:
                 self.local.publish(AVAIL_TOPIC, AVAIL_PAYLOAD_OFF, qos=0, retain=True)
                 time.sleep(0.5)

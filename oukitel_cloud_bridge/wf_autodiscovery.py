@@ -368,6 +368,8 @@ def _setenv(key: str, val: str) -> None:
 def _apply_platform(plat: dict) -> None:
     _setenv("BASE_URL",           plat.get("base_url", ""))
     _setenv("ACCEL_URL",          plat.get("accel_url", ""))
+    _setenv("WS_PUSH_URL",        plat.get("ws_push_url", ""))
+    _setenv("WS_PUSH_FORMAT",     plat.get("ws_push_format", ""))
     _setenv("WF_DOMAIN",          plat.get("wf_domain", ""))
     _setenv("SECRET_SUFFIX",      plat.get("secret_suffix", ""))
     _setenv("REALTIME_ATTRS_URL", plat.get("realtime_attrs_url", ""))

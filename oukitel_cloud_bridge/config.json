@@ -1,6 +1,6 @@
 {
-  "name": "Oukitel Cloud Bridge (Experimental)",
-  "version": "0.1.0",
+  "name": "Oukitel Cloud Bridge",
+  "version": "0.2.0",
   "slug": "oukitel_cloud_bridge",
   "description": "EXPERIMENTAL - Community bridge for Oukitel power stations via Wonderfree/Landbook app (Acceleronix backend). NOT affiliated with Oukitel.",
   "arch": ["aarch64", "amd64", "armv7", "armhf", "i386"],
@@ -26,7 +26,8 @@
     "stale_sec": 60,
     "send_strategy": "auto",
     "observer_only": false,
-    "clear_retained": false
+    "clear_retained": false,
+    "chglimit_max_watts": 600
   },
   "schema": {
     "wf_email": "str",
@@ -46,6 +47,7 @@
     "stale_sec": "int",
     "send_strategy": "str",
     "observer_only": "bool",
-    "clear_retained": "bool"
+    "clear_retained": "bool",
+    "chglimit_max_watts": "int"
   }
 }

@@ -18,5 +18,6 @@ export STALE_SEC=$(bashio::config 'stale_sec')
 export SEND_STRATEGY=$(bashio::config 'send_strategy')
 export OBSERVER_ONLY=$(bashio::config 'observer_only')
 export CLEAR_RETAINED=$(bashio::config 'clear_retained')
+export CHGLIMIT_MAX_WATTS=$(bashio::config 'chglimit_max_watts')
 
-exec python3 /bridge.py
+exec python3 /app/bridge.py

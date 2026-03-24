@@ -184,10 +184,14 @@ CLEAR_RETAINED = os.getenv("CLEAR_RETAINED", "false") in ("1", "true", "True")
 # Modalità osservatore: nessun comando BUS o switch inviato al device
 OBSERVER_ONLY = os.getenv("OBSERVER_ONLY", "false").strip().lower() in ("1", "true", "yes", "on")
 
-# Slider config
-OUTPUT_MIN = int(os.getenv("OUTPUT_POWER_MIN", "100"))
-OUTPUT_MAX = int(os.getenv("OUTPUT_POWER_MAX", "800"))
-OUTPUT_STEP = int(os.getenv("OUTPUT_POWER_STEP", "10"))
+# AC Charging Limit slider (0-100 %)
+# CHGLIMIT_MAX_WATTS: potenza massima del dispositivo in base allo switch fisico
+#   slow mode (switch fisico su SLOW) = 600 W  → default
+#   fast mode (switch fisico su FAST) = 1200 W → imposta CHGLIMIT_MAX_WATTS=1200 nell'env
+CHGLIMIT_MIN       = int(os.getenv("CHGLIMIT_MIN",       "0"))
+CHGLIMIT_MAX       = int(os.getenv("CHGLIMIT_MAX",       "100"))
+CHGLIMIT_STEP      = int(os.getenv("CHGLIMIT_STEP",      "1"))
+CHGLIMIT_MAX_WATTS = int(_opt("CHGLIMIT_MAX_WATTS", "chglimit_max_watts") or "600")
 
 APP_HEADERS = {
     "appVersion":    "3.3.1",
@@ -211,42 +215,22 @@ LOCAL_OUT_PREFIX = os.getenv("LOCAL_OUT_PREFIX", "acceleronix_out/")
 BUS_TOPIC       = f"q/1/d/qd{PRODUCT_KEY}{DEVICE_KEY}/bus"
 
 
-# Switch topics (base)
-LED_CMD_TOPIC       = f"{HA_BASE}/{DEVICE_KEY}/set/led_status"
-LED_STATE_TOPIC     = f"{HA_BASE}/{DEVICE_KEY}/state/led_status"
-AC_CMD_TOPIC        = f"{HA_BASE}/{DEVICE_KEY}/set/ac_switch"
-AC_STATE_TOPIC      = f"{HA_BASE}/{DEVICE_KEY}/state/ac_switch"
-DC_CMD_TOPIC        = f"{HA_BASE}/{DEVICE_KEY}/set/dc_switch"
-DC_STATE_TOPIC      = f"{HA_BASE}/{DEVICE_KEY}/state/dc_switch"
-SCREEN_CMD_TOPIC    = f"{HA_BASE}/{DEVICE_KEY}/set/screen_switch"
-SCREEN_STATE_TOPIC  = f"{HA_BASE}/{DEVICE_KEY}/state/screen_switch"
+# Switch topics
+LED_CMD_TOPIC      = f"{HA_BASE}/{DEVICE_KEY}/set/led_status"
+LED_STATE_TOPIC    = f"{HA_BASE}/{DEVICE_KEY}/state/led_status"
+AC_CMD_TOPIC       = f"{HA_BASE}/{DEVICE_KEY}/set/ac_switch"
+AC_STATE_TOPIC     = f"{HA_BASE}/{DEVICE_KEY}/state/ac_switch"
+DC_CMD_TOPIC       = f"{HA_BASE}/{DEVICE_KEY}/set/dc_switch"
+DC_STATE_TOPIC     = f"{HA_BASE}/{DEVICE_KEY}/state/dc_switch"
 
-# Extra switches
-GRIDOUT_CMD_TOPIC   = f"{HA_BASE}/{DEVICE_KEY}/set/grid_output"
-GRIDOUT_STATE_TOPIC = f"{HA_BASE}/{DEVICE_KEY}/state/grid_output"
-BEEP_CMD_TOPIC      = f"{HA_BASE}/{DEVICE_KEY}/set/beep_setting"
-BEEP_STATE_TOPIC    = f"{HA_BASE}/{DEVICE_KEY}/state/beep_setting"
-SLOWCHG_CMD_TOPIC   = f"{HA_BASE}/{DEVICE_KEY}/set/ac_charging_limit"
-SLOWCHG_STATE_TOPIC = f"{HA_BASE}/{DEVICE_KEY}/state/ac_charging_limit"
-
-# Mode select
-MODE_CMD_TOPIC      = f"{HA_BASE}/{DEVICE_KEY}/set/mode_set"
-MODE_STATE_TOPIC    = f"{HA_BASE}/{DEVICE_KEY}/state/mode_set"
-
-# Slider (number) for on-grid output power
-OUTPOW_CMD_TOPIC    = f"{HA_BASE}/{DEVICE_KEY}/set/output_power_set"
-OUTPOW_STATE_TOPIC  = f"{HA_BASE}/{DEVICE_KEY}/state/output_power_set"
+# Slider (number) for AC charging limit %
+CHGLIMIT_CMD_TOPIC = f"{HA_BASE}/{DEVICE_KEY}/set/ac_charging_limit_pct"
 
 # Discovery topics
-AC_CFG_TOPIC        = f"{DISCOVERY_PREFIX}/switch/wonderfree_ac/config"
-DC_CFG_TOPIC        = f"{DISCOVERY_PREFIX}/switch/wonderfree_dc/config"
-LED_CFG_TOPIC       = f"{DISCOVERY_PREFIX}/switch/wonderfree_led/config"
-SCREEN_CFG_TOPIC    = f"{DISCOVERY_PREFIX}/switch/wonderfree_screen/config"
-GRIDOUT_CFG_TOPIC   = f"{DISCOVERY_PREFIX}/switch/wonderfree_{DEVICE_KEY}_grid_output/config"
-BEEP_CFG_TOPIC      = f"{DISCOVERY_PREFIX}/switch/wonderfree_{DEVICE_KEY}_beep/config"
-SLOWCHG_CFG_TOPIC   = f"{DISCOVERY_PREFIX}/switch/wonderfree_{DEVICE_KEY}_slowcharge/config"
-MODE_CFG_TOPIC      = f"{DISCOVERY_PREFIX}/select/wonderfree_mode/config"
-OUTPOW_CFG_TOPIC    = f"{DISCOVERY_PREFIX}/number/wonderfree_{DEVICE_KEY}_output_power_set/config"
+AC_CFG_TOPIC       = f"{DISCOVERY_PREFIX}/switch/wonderfree_ac/config"
+DC_CFG_TOPIC       = f"{DISCOVERY_PREFIX}/switch/wonderfree_dc/config"
+LED_CFG_TOPIC      = f"{DISCOVERY_PREFIX}/switch/wonderfree_led/config"
+CHGLIMIT_CFG_TOPIC = f"{DISCOVERY_PREFIX}/number/wonderfree_{DEVICE_KEY}_ac_charging_limit/config"
 
 # Stato sensori
 SENSOR_JSON_TOPIC = f"{HA_BASE}/{DEVICE_KEY}/state"
@@ -274,33 +258,14 @@ def _num(val):
 
 
 # HEX aggiornati (dalla versione nuova)
-LED_ON_HEX   = "AA AA 00 09 A9 02 8F 00 13 01 02 00 01"
-LED_OFF_HEX  = "AA AA 00 09 A9 02 90 00 13 01 02 00 00"
+LED_ON_HEX   = "AA AA 00 09 A3 07 35 00 13 00 52 00 01"
+LED_OFF_HEX  = "AA AA 00 09 C3 07 56 00 13 00 52 00 00"
 
-AC_ON_HEX    = "AA AA 00 07 A5 00 20 00 13 00 71"
-AC_OFF_HEX   = "AA AA 00 07 C7 00 43 00 13 00 70"
+AC_ON_HEX    = "AA AA 00 07 16 04 A4 00 13 01 59"
+AC_OFF_HEX   = "AA AA 00 07 1E 04 AD 00 13 01 58"
 
-DC_ON_HEX    = "AA AA 00 07 17 02 88 00 13 00 79"
-DC_OFF_HEX   = "AA AA 00 07 15 02 87 00 13 00 78"
-
-SCREEN_OFF_HEX = "AA AA 00 09 2F 00 DE 00 13 01 32 00 0A"
-SCREEN_ON_HEX  = "AA AA 00 09 40 00 F9 00 13 01 32 00 00"
-
-GRID_OFF_HEX = "AA AA 00 07 24 01 2F 00 13 00 E0"
-GRID_ON_HEX  = "AA AA 00 07 28 01 32 00 13 00 E1"
-
-BEEP_ON_HEX    = "AA AA 00 07 0C 01 BD 00 13 01 39"
-BEEP_OFF_HEX   = "AA AA 00 07 08 01 BA 00 13 01 38"
-SLOW_ON_HEX    = "AA AA 00 07 06 01 E7 00 13 01 09"
-SLOW_OFF_HEX   = "AA AA 00 07 FD 01 DF 00 13 01 08"
-
-
-MODE_HEX_BY_LABEL = {
-    "PPS":                    "AA AA 00 09 06 00 19 00 13 00 DA 00 00",
-    "Micro-Inverter":         "AA AA 00 09 08 00 1A 00 13 00 DA 00 01",
-    "Power Reserve Priority": "AA AA 00 09 76 02 84 00 13 00 DA 00 02",
-}
-MODE_LABEL_BY_VAL = {0: "PPS", 1: "Micro-Inverter", 2: "Power Reserve Priority",}
+DC_ON_HEX    = "AA AA 00 07 30 06 A4 00 13 01 71"
+DC_OFF_HEX   = "AA AA 00 07 3F 06 B4 00 13 01 70"
 
 DEVICE_STATUS_LABEL = {
     0: "Standby",

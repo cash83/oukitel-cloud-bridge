@@ -1,16 +1,5 @@
 # Auto-split from original bridge.py
-# Module: wf_switches — Oukitel variant
-#
-# NOTA: I comandi AC/DC/USB/FAN per Oukitel usano frame HEX diretti sul BUS topic.
-# I frame qui sotto sono stati ricavati da reverse engineering del protocollo BLE/BUS.
-#
-# AC/DC HEX commands not verified - contributions welcome
-#
-#   AC ON:  AA AA 00 07 74 00 07 00 13 01 59
-#   AC OFF: AA AA 00 17 FF 00 0E 00 13 00 34 00 03 00 12 00 00 00 1A 00 00 00 22 00 00 01 58
-#   DC ON:  AA AA 00 07 95 00 10 00 13 01 71
-#   DC OFF: AA AA 00 2F AE 00 13 00 13 00 4C 00 09 00 12 00 00 00 1A 00 00 00 22 00 00 00 2A 00 00 00 32 00 00 00 3A 00 00 00 42 00 00 00 4A 00 00 00 52 00 00 01 70
-#
+# Module: wf_switches
 from __future__ import annotations
 
 import time
@@ -23,14 +12,15 @@ import paho.mqtt.client as mqtt
 from wf_config import (
     log,
     DEDUP_MS, SEND_STRATEGY, CMD_GRACE_SECONDS, OBSERVER_ONLY,
+    CHGLIMIT_MIN, CHGLIMIT_MAX, CHGLIMIT_CMD_TOPIC,
 
     BUS_TOPIC, LOCAL_OUT_PREFIX,
 
+    LED_CMD_TOPIC, LED_STATE_TOPIC,
     AC_CMD_TOPIC, AC_STATE_TOPIC,
     DC_CMD_TOPIC, DC_STATE_TOPIC,
-    USB_CMD_TOPIC, USB_STATE_TOPIC,
-    FAN_CMD_TOPIC, FAN_STATE_TOPIC,
 
+    LED_ON_HEX, LED_OFF_HEX,
     AC_ON_HEX, AC_OFF_HEX,
     DC_ON_HEX, DC_OFF_HEX,
 
@@ -42,6 +32,11 @@ def attach(Bridge):
         t = msg.topic
         p = (msg.payload or b"").decode(errors="ignore").strip()
 
+
+        if t == LED_CMD_TOPIC:
+            on = p.upper() == "ON"
+            self._send_cmd(LED_ON_HEX if on else LED_OFF_HEX, "led_status", LED_STATE_TOPIC, on, CMD_GRACE_SECONDS)
+            return
         if t == AC_CMD_TOPIC:
             on = p.upper() == "ON"
             self._send_cmd(AC_ON_HEX if on else AC_OFF_HEX, "ac_switch", AC_STATE_TOPIC, on, CMD_GRACE_SECONDS)
@@ -50,17 +45,17 @@ def attach(Bridge):
             on = p.upper() == "ON"
             self._send_cmd(DC_ON_HEX if on else DC_OFF_HEX, "dc_switch", DC_STATE_TOPIC, on, CMD_GRACE_SECONDS)
             return
-        if t == USB_CMD_TOPIC:
-            on = p.upper() == "ON"
-            # USB ON/OFF HEX not verified - contributions welcome
-            log.warning(f"[CMD] usb_switch command received but USB HEX not verified - ignoring")
-            return
-        if t == FAN_CMD_TOPIC:
-            on = p.upper() == "ON"
-            # Fan ON/OFF HEX not verified - contributions welcome
-            log.warning(f"[CMD] fan_switch command received but Fan HEX not verified - ignoring")
+        if t == CHGLIMIT_CMD_TOPIC:
+            try:
+                val = int(float(p))
+            except Exception:
+                log.warning(f"[CMD] ac_charging_limit payload non valido: {p!r}")
+                return
+            val = max(CHGLIMIT_MIN, min(CHGLIMIT_MAX, val))
+            self._send_charging_limit(val)
             return
 
+    # ---- Command helpers (NoBeep routing + dedup) ----
     Bridge._on_local_message = _on_local_message
 
     def _route_and_publish(self, payload: bytes):
@@ -116,5 +111,47 @@ def attach(Bridge):
             self.local.publish(state_topic, b"ON" if desired_on else b"OFF", qos=0, retain=True)
         log.debug(f"[CMD] {key} -> {'ON' if desired_on else 'OFF'} (grace {grace}s)")
     Bridge._send_cmd = _send_cmd
+
+    def _send_charging_limit(self, pct: int):
+        """Invia ac_charging_limit (0-100%) via BUS frame.
+
+        Struttura catturata da Frida:
+          AA AA 00 09 [seq:1] [pkt:2] 00 14 00 A2 00 [pct:1]
+        Dove pct è direttamente la percentuale decimale (0x00–0x64).
+        """
+        if OBSERVER_ONLY:
+            log.debug("[CMD] OBSERVER_ONLY — ac_charging_limit ignorato")
+            return
+
+        pct = max(0, min(100, int(pct)))
+
+        seq = getattr(self, "_chglimit_seq", None)
+        if seq is None:
+            seq = 0x4E  # valore app-like iniziale
+        else:
+            seq = (seq + 1) & 0xFF
+        self._chglimit_seq = seq
+
+        pkt = getattr(self, "_chglimit_pkt", None)
+        if pkt is None:
+            pkt = 0x0E8A  # valore app-like iniziale
+        else:
+            pkt = (pkt + 1) & 0xFFFF
+        self._chglimit_pkt = pkt
+
+        frame = (
+            b"\xAA\xAA"
+            + b"\x00\x09"
+            + bytes([seq])
+            + pkt.to_bytes(2, "big")
+            + b"\x00\x13"
+            + b"\x00\xA2"
+            + b"\x00"
+            + bytes([pct])
+        )
+
+        self._route_and_publish(frame)
+        log.debug(f"[CMD] ac_charging_limit -> {pct}% hex={frame.hex()}")
+    Bridge._send_charging_limit = _send_charging_limit
 
     return Bridge

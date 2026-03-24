@@ -70,18 +70,6 @@ class Bridge:
         client.publish(DC_STATE_TOPIC, b"OFF", qos=0, retain=True)
         publish_cfg(LED_CFG_TOPIC, {"name":"LED","uniq_id":f"wf_led_{DEVICE_KEY}","cmd_t":LED_CMD_TOPIC,"stat_t":LED_STATE_TOPIC,"pl_on":"ON","pl_off":"OFF","icon":"mdi:flashlight","device":base_dev})
         client.publish(LED_STATE_TOPIC, b"OFF", qos=0, retain=True)
-        publish_cfg(SCREEN_CFG_TOPIC, {"name":"Screen","uniq_id":f"wf_screen_{DEVICE_KEY}","cmd_t":SCREEN_CMD_TOPIC,"stat_t":SCREEN_STATE_TOPIC,"pl_on":"ON","pl_off":"OFF","icon":"mdi:monitor","device":base_dev})
-        client.publish(SCREEN_STATE_TOPIC, b"OFF", qos=0, retain=True)
-        publish_cfg(GRIDOUT_CFG_TOPIC, {"name":"On-grid Output Switch","uniq_id":f"wf_grid_output_{DEVICE_KEY}","cmd_t":GRIDOUT_CMD_TOPIC,"stat_t":GRIDOUT_STATE_TOPIC,"pl_on":"ON","pl_off":"OFF","icon":"mdi:transmission-tower-export","device":base_dev})
-        client.publish(GRIDOUT_STATE_TOPIC, b"OFF", qos=0, retain=True)
-        publish_cfg(BEEP_CFG_TOPIC, {"name":"Buzzer","uniq_id":f"wf_beep_{DEVICE_KEY}","cmd_t":BEEP_CMD_TOPIC,"stat_t":BEEP_STATE_TOPIC,"pl_on":"ON","pl_off":"OFF","icon":"mdi:volume-high","device":base_dev})
-        client.publish(BEEP_STATE_TOPIC, b"OFF", qos=0, retain=True)
-        publish_cfg(SLOWCHG_CFG_TOPIC, {"name":"Silent Charge","uniq_id":f"wf_slowchg_{DEVICE_KEY}","cmd_t":SLOWCHG_CMD_TOPIC,"stat_t":SLOWCHG_STATE_TOPIC,"pl_on":"ON","pl_off":"OFF","icon":"mdi:tortoise","device":base_dev})
-        client.publish(SLOWCHG_STATE_TOPIC, b"OFF", qos=0, retain=True)
-        publish_cfg(MODE_CFG_TOPIC, {"name":"Working Mode","uniq_id":f"wf_mode_{DEVICE_KEY}","cmd_t":MODE_CMD_TOPIC,"stat_t":MODE_STATE_TOPIC,"options":["PPS","Micro-Inverter","Power Reserve Priority"],"icon":"mdi:transmission-tower-import","device":base_dev})
-        client.publish(MODE_STATE_TOPIC, b"PPS", qos=0, retain=True)
-        publish_cfg(OUTPOW_CFG_TOPIC, {"name":"On-grid Power Setting","uniq_id":f"wf_output_power_{DEVICE_KEY}","cmd_t":OUTPOW_CMD_TOPIC,"stat_t":OUTPOW_STATE_TOPIC,"min": OUTPUT_MIN, "max": OUTPUT_MAX, "step": OUTPUT_STEP,"unit_of_measurement":"W","device_class":"power","icon":"mdi:lightning-bolt","device": base_dev})
-        client.publish(OUTPOW_STATE_TOPIC, str(OUTPUT_MIN).encode(), qos=0, retain=True)
 
         def disc_sensor(obj_id, name, unit=None, device_class=None, state_class=None):
             uniq = f"wonderfree_{DEVICE_KEY}_{obj_id}"
@@ -101,54 +89,43 @@ class Bridge:
             client.publish(cfg_topic, json.dumps(cfg).encode(), qos=0, retain=True)
 
         for s in [
-            ("battery_percentage", "Battery", "%", "battery", "measurement"),
-            ("remaining_time", "Remaining Time (hours)", "h", None, "measurement"),
-            ("charge_time_to_full_str", "Charge Time to Full (formatted)", None, None, None),
-            ("battery_voltage", "Battery Voltage", "V", "voltage", "measurement"),
-            ("battery_current", "Battery Current", "A", "current", "measurement"),
-            ("battery_temp", "Battery Temperature", "°C", "temperature", "measurement"),
-            ("ac_input_power",  "AC Input Power (Charging)", "W", "power", "measurement"),
-            ("ac_output_power", "AC Output Power (Discharging)", "W", "power", "measurement"),
-            ("ac_output_voltage", "AC Output Voltage", "V", "voltage", "measurement"),
-            ("ac_output_current", "AC Output Current", "A", "current", "measurement"),
-            ("pv_input_power", "PV Input Power (Solar)", "W", "power", "measurement"),
-            ("pv_input_energy","PV Input Energy", "kWh", "energy", "total_increasing"),
-            ("dc_input_power", "DC Input Power", "W", "power", "measurement"),
-            ("total_input_power","Total Input Power", "W", "power", "measurement"),
-            ("total_output_power","Total Output Power", "W", "power", "measurement"),
-            ("grid_voltage","Grid Voltage","V","voltage","measurement"),
-            ("grid_freq","Grid Frequency","Hz",None,"measurement"),
-            ("dc24v_voltage","DC 24V Voltage","V","voltage","measurement"),
-            ("dc24v_current","DC 24V Current","A","current","measurement"),
-            ("dc12v1_voltage","DC 12V1 Voltage","V","voltage","measurement"),
-            ("dc12v1_current","DC 12V1 Current","A","current","measurement"),
-            ("dc12v2_voltage","DC 12V2 Voltage","V","voltage","measurement"),
-            ("dc12v2_current","DC 12V2 Current","A","current","measurement"),
-            ("typec_1_voltage","Type-C1 Voltage","V","voltage","measurement"),
-            ("typec_1_current","Type-C1 Current","A","current","measurement"),
-            ("typec_1_power","Type-C1 Power","W","power","measurement"),
-            ("typec_2_voltage","Type-C2 Voltage","V","voltage","measurement"),
-            ("typec_2_current","Type-C2 Current","A","current","measurement"),
-            ("typec_2_power","Type-C2 Power","W","power","measurement"),
-            ("usb_a1_voltage","USB-A1 Voltage","V","voltage","measurement"),
-            ("usb_a1_current","USB-A1 Current","A","current","measurement"),
-            ("usb_a1_power","USB-A1 Power","W","power","measurement"),
-            ("usb_a2_voltage","USB-A2 Voltage","V","voltage","measurement"),
-            ("usb_a2_current","USB-A2 Current","A","current","measurement"),
-            ("usb_a2_power","USB-A2 Power","W","power","measurement"),
-            ("usb_a3_voltage","USB-A3 Voltage","V","voltage","measurement"),
-            ("usb_a3_current","USB-A3 Current","A","current","measurement"),
-            ("usb_a3_power","USB-A3 Power","W","power","measurement"),
-            ("usb_a4_voltage","USB-A4 Voltage","V","voltage","measurement"),
-            ("usb_a4_current","USB-A4 Current","A","current","measurement"),
-            ("usb_a4_power","USB-A4 Power","W","power","measurement"),
-            ("temp_bms","BMS Temperature","°C","temperature","measurement"),
-            ("temp_inv","Inverter Temperature","°C","temperature","measurement"),
-            ("temp_mppt","MPPT Temperature","°C","temperature","measurement"),
-            ("signal_strength","Signal Strength","dBm","signal_strength","measurement"),
-            ("fault_code","Fault Code",None,None,None),
-            ("device_status","Device Status",None,None,None),
-            ("output_power_set","On-Grid Power Set (W)","W","power","measurement"),
+            # --- Battery ---
+            ("battery_percentage",       "Battery",                      "%",   "battery",         "measurement"),
+            ("remain_time",              "Remaining Use Time",           "min", None,              "measurement"),
+            ("remain_time_h",            "Remaining Use Time (h)",       "h",   None,              "measurement"),
+            ("remain_charging_time",     "Remaining Charge Time",        "min", None,              "measurement"),
+            # --- Temperature ---
+            ("temp",                     "Device Temperature",           "°C",  "temperature",     "measurement"),
+            # --- Power input ---
+            ("ac_input",                 "AC Input Power",               "W",   "power",           "measurement"),
+            ("dc_input",                 "DC Input Power (Solar)",       "W",   "power",           "measurement"),
+            ("total_input_power",        "Total Input Power",            "W",   "power",           "measurement"),
+            # --- AC output ---
+            ("ac1_output",               "AC1 Output Power",             "W",   "power",           "measurement"),
+            ("ac1_output_voltage",       "AC1 Output Voltage",           "V",   "voltage",         "measurement"),
+            # --- DC 12V output ---
+            ("car1_output",              "12V Output Power",             "W",   "power",           "measurement"),
+            ("car1_output_voltage",      "12V Output Voltage",           "V",   "voltage",         "measurement"),
+            ("car1_output_current",      "12V Output Current",           "A",   "current",         "measurement"),
+            # --- USB output ---
+            ("usb_qc1_output",           "USB-A1 Output Power",          "W",   "power",           "measurement"),
+            ("usb_qc2_output",           "USB-QC2 Output Power",         "W",   "power",           "measurement"),
+            # --- Type-C output ---
+            ("typec1_output",            "Type-C1 Output Power",         "W",   "power",           "measurement"),
+            ("typec2_output",            "Type-C2 Output Power",         "W",   "power",           "measurement"),
+            # --- Total output ---
+            ("total_output_power",       "Total Output Power",           "W",   "power",           "measurement"),
+            # --- Settings ---
+            ("ac_voltage_switchover",    "AC Output Voltage Setting",    "V",   "voltage",         None),
+            ("frequency_switchover",     "AC Output Frequency Setting",  None,  None,              None),
+            ("ac_charging_limit",        "AC Charging Limit",            "%",   None,              "measurement"),
+            ("led_status",               "LED Mode",                     None,  None,              None),
+            ("high_frequency_reporting", "High-Rate Reporting Mode",     None,  None,              None),
+            # --- Firmware ---
+            ("bms_version",              "BMS Firmware Version",         None,  None,              None),
+            ("ac_version",               "Inverter Firmware Version",    None,  None,              None),
+            # --- Signal ---
+            ("signal_strength",          "Signal Strength",              "dBm", "signal_strength", "measurement"),
         ]:
             disc_sensor(*s)
 
@@ -157,6 +134,24 @@ class Bridge:
             payload["payload_available"] = AVAIL_PAYLOAD_ON
             payload["payload_not_available"] = AVAIL_PAYLOAD_OFF
             client.publish(topic, json.dumps(payload).encode(), qos=0, retain=True)
+
+        publish_cfg2(CHGLIMIT_CFG_TOPIC, {
+            "name": "AC Charging Limit",
+            "uniq_id": f"wonderfree_{DEVICE_KEY}_ac_charging_limit_ctrl",
+            "cmd_t": CHGLIMIT_CMD_TOPIC,
+            "stat_t": SENSOR_JSON_TOPIC,
+            "val_tpl": "{{ value_json.ac_charging_limit }}",
+            "min": CHGLIMIT_MIN,
+            "max": CHGLIMIT_MAX,
+            "step": CHGLIMIT_STEP,
+            "unit_of_measurement": "%",
+            "icon": "mdi:battery-charging-50",
+            "mode": "slider",
+            "device": base_dev,
+        })
+
+        # Sensore che mostra la potenza di carica calcolata in watt
+        disc_sensor("ac_charging_limit_w", "AC Charging Limit (W)", "W", "power", "measurement")
 
         publish_cfg2(f"{DISCOVERY_PREFIX}/sensor/wonderfree_{DEVICE_KEY}_bridge_uptime/config", {
             "name": "Bridge Uptime (min)",
@@ -256,73 +251,54 @@ class Bridge:
 
         # ── 3. Tutti i topic state/* attualmente noti ─────────────────────
         _state_keys = [
-            # battery
-            "battery_percentage", "battery_voltage", "battery_current",
-            "battery_temp", "remaining_time",
-            "charge_time_to_full", "charge_time_to_full_str",
-            # pv / solar
-            "pv_input_power", "pv_input_energy",
-            # ac
-            "ac_input_power", "ac_output_power",
-            "ac_output_voltage", "ac_output_current",
-            # dc
-            "dc_input_power", "dc_output_power",
-            "dc24v_voltage", "dc24v_current",
-            "dc12v1_voltage", "dc12v1_current",
-            "dc12v2_voltage", "dc12v2_current",
-            # type-c
-            "typec_1_voltage", "typec_1_current", "typec_1_power",
-            "typec_2_voltage", "typec_2_current", "typec_2_power",
-            # usb
-            "usb_a1_voltage", "usb_a1_current", "usb_a1_power",
-            "usb_a2_voltage", "usb_a2_current", "usb_a2_power",
-            "usb_a3_voltage", "usb_a3_current", "usb_a3_power",
-            "usb_a4_voltage", "usb_a4_current", "usb_a4_power",
-            # grid
-            "grid_voltage", "grid_freq",
-            # totali
-            "total_input_power", "total_output_power",
-            # temperature
-            "temp", "temp_bms", "temp_inv", "temp_mppt",
-            # misc
-            "signal_strength", "fault_code", "device_status", "updated_at",
-            # switch/select states
-            "ac_switch", "dc_switch", "offscreen_switch",
-            "grid_output", "ac_charging_limit", "beep_setting",
-            "led_status", "mode_set", "output_power_set",
-            # bridge health
+            "battery_percentage",
+            "remain_time", "remain_time_h", "remain_charging_time",
+            "temp",
+            "ac_input", "dc_input", "total_input_power", "total_output_power",
+            "ac1_output", "ac1_output_voltage",
+            "car1_output", "car1_output_voltage", "car1_output_current",
+            "usb_qc1_output", "usb_qc2_output",
+            "typec1_output", "typec2_output",
+            "ac_voltage_switchover", "frequency_switchover",
+            "ac_charging_limit", "led_status",
+            "bms_version", "ac_version", "high_frequency_reporting",
+            "signal_strength", "updated_at",
+            "ac_switch", "dc_switch",
             "bridge_uptime", "bridge_relogins",
         ]
         for k in _state_keys:
             _pub(f"{SENSOR_BASE_TOPIC}/{k}")
 
-        # ── 4. Discovery config switch / select / number (attivi) ─────────
-        for cfg_t in (
-            AC_CFG_TOPIC, DC_CFG_TOPIC, LED_CFG_TOPIC, SCREEN_CFG_TOPIC,
-            GRIDOUT_CFG_TOPIC, BEEP_CFG_TOPIC, SLOWCHG_CFG_TOPIC,
-            MODE_CFG_TOPIC, OUTPOW_CFG_TOPIC,
-        ):
+        # ── 4. Discovery config switch / number (attivi) ─────────────────
+        for cfg_t in (AC_CFG_TOPIC, DC_CFG_TOPIC, LED_CFG_TOPIC, CHGLIMIT_CFG_TOPIC):
             _pub(cfg_t)
+
+        # ── 4b. Discovery config legacy (da rimuovere dal broker) ─────────
+        _legacy_cfg = [
+            f"{DISCOVERY_PREFIX}/switch/wonderfree_screen/config",
+            f"{DISCOVERY_PREFIX}/switch/wonderfree_{DEVICE_KEY}_grid_output/config",
+            f"{DISCOVERY_PREFIX}/switch/wonderfree_{DEVICE_KEY}_beep/config",
+            f"{DISCOVERY_PREFIX}/switch/wonderfree_{DEVICE_KEY}_slowcharge/config",
+            f"{DISCOVERY_PREFIX}/select/wonderfree_mode/config",
+            f"{DISCOVERY_PREFIX}/number/wonderfree_{DEVICE_KEY}_output_power_set/config",
+        ]
+        for t in _legacy_cfg:
+            _pub(t)
 
         # ── 5. Discovery config sensori attivi ───────────────────────────
         _sensor_ids = [
-            "battery_percentage", "remaining_time", "charge_time_to_full_str",
-            "battery_voltage", "battery_current", "battery_temp",
-            "ac_input_power", "ac_output_power", "ac_output_voltage", "ac_output_current",
-            "pv_input_power", "pv_input_energy",
-            "dc_input_power", "total_input_power", "total_output_power",
-            "grid_voltage", "grid_freq",
-            "dc24v_voltage", "dc24v_current",
-            "dc12v1_voltage", "dc12v1_current",
-            "dc12v2_voltage", "dc12v2_current",
-            "typec_1_voltage", "typec_1_current", "typec_1_power",
-            "typec_2_voltage", "typec_2_current", "typec_2_power",
-            "usb_a1_voltage", "usb_a1_current", "usb_a1_power",
-            "usb_a2_voltage", "usb_a2_current", "usb_a2_power",
-            "usb_a3_voltage", "usb_a3_current", "usb_a3_power",
-            "usb_a4_voltage", "usb_a4_current", "usb_a4_power",
-            "temp_bms", "temp_inv", "temp_mppt",
-            "signal_strength", "fault_code", "device_status", "output_power_set",
+            "battery_percentage",
+            "remain_time", "remain_time_h", "remain_charging_time",
+            "temp",
+            "ac_input", "dc_input", "total_input_power", "total_output_power",
+            "ac1_output", "ac1_output_voltage",
+            "car1_output", "car1_output_voltage", "car1_output_current",
+            "usb_qc1_output", "usb_qc2_output",
+            "typec1_output", "typec2_output",
+            "ac_voltage_switchover", "frequency_switchover",
+            "ac_charging_limit", "led_status",
+            "bms_version", "ac_version", "high_frequency_reporting",
+            "signal_strength",
             "bridge_uptime", "bridge_relogins",
         ]
         for sid in _sensor_ids:
